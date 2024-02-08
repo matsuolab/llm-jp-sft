@@ -177,3 +177,10 @@ pyrightconfig.json
 
 # Wandb
 wandb/
+
+# dataset
+dataset/*.json
+dataset/*.jsonl
+
+# results
+results/
