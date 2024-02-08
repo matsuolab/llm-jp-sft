@@ -23,7 +23,9 @@ logger = logging.getLogger(__name__)
 class SFTTrainingArguments:
     model_name_or_path: str
     data_files: list[str]
+    response_template: str
     eval_data_files: Optional[list[str]] = None
+    instruction_template: Optional[str] = None
     tokenizer_name_or_path: Optional[str] = None
     use_fast: bool = True
     additional_special_tokens: Optional[list[str]] = None
@@ -126,11 +128,16 @@ def main() -> None:
         eval_dataset = None
 
     logger.info("Formatting prompts")
-    instruction_ids = tokenizer.encode("\n\n### 指示:\n", add_special_tokens=False)[1:]
-    response_ids = tokenizer.encode("\n\n### 応答:\n", add_special_tokens=False)[1:]
-    collator = DataCollatorForCompletionOnlyLM(
-        instruction_template=instruction_ids, response_template=response_ids, tokenizer=tokenizer
-    )
+    response_ids = tokenizer.encode(sft_training_args.response_template, add_special_tokens=False)[1:]
+    if sft_training_args.instruction_template:
+        instruction_ids = tokenizer.encode(sft_training_args.instruction_template, add_special_tokens=False)[1:]
+        collator = DataCollatorForCompletionOnlyLM(
+            instruction_template=instruction_ids, response_template=response_ids, tokenizer=tokenizer
+        )
+    else:
+        collator = DataCollatorForCompletionOnlyLM(
+            response_template=response_ids, tokenizer=tokenizer
+        )
 
     logger.info(f"Loading model from {sft_training_args.model_name_or_path}")
     kwargs = sft_training_args.from_pretrained_kwargs(training_args)
