@@ -23,10 +23,10 @@ logger = logging.getLogger(__name__)
 class SFTTrainingArguments:
     model_name_or_path: str
     data_files: list[str]
-    eval_data_files: list[str] = None
+    eval_data_files: Optional[list[str]] = None
     tokenizer_name_or_path: Optional[str] = None
     use_fast: bool = True
-    additional_special_tokens: list[str] = None
+    additional_special_tokens: Optional[list[str]] = None
     max_seq_length: int = 2048
     load_in_8bit: bool = False
     load_in_4bit: bool = False
