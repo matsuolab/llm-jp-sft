@@ -39,6 +39,11 @@ class SFTTrainingArguments:
     peft_lora_r: int = 8
     peft_lora_alpha: int = 32
     peft_lora_dropout: float = 0.05
+    use_wandb: bool = False
+    wandb_entity: Optional[str] = None
+    wandb_project: Optional[str] = None
+    wandb_group: Optional[str] = None
+    wandb_tag: Optional[str] = None
 
     def __post_init__(self):
         if self.load_in_8bit and self.load_in_4bit:
@@ -169,6 +174,28 @@ def main() -> None:
                     param.data = param.data.to(torch.float32)
             model.gradient_checkpointing_enable()
             model.enable_input_require_grads()
+
+    # Initialize W&B for each node.
+    #
+    # To log to W&B for each node, we need to manually call `wandb.init()` with our customized parameters for each node
+    # before `Trainer` class is initialized because `Trainer` class internally calls `wandb.init()` with the default parameters.
+    # See: https://docs.wandb.ai/guides/integrations/huggingface#customize-wandbinit
+    #
+    # However, even though we manually call `wandb.init()` for each node, the training metrics (e.g. loss) will be logged only for the parent node
+    # because `Trainer` class uses `WandbCallback` class and `WandbCallback` class internally calls `wandb.log()` only for the parent node.
+    # See: https://github.com/huggingface/transformers/blob/v4.34.0/src/transformers/integrations/integration_utils.py#L807-L809
+    # But that's no problem because what we want is the system metrics (e.g. GPU utilization) and it will be successfully logged for each node.
+    if sft_training_args.use_wandb:
+        import deepspeed
+        from deepspeed.accelerator import get_accelerator
+        is_local_rank_0 = (torch.distributed.get_rank() % get_accelerator().device_count() == 0) if torch.distributed.is_initialized() else True
+        if is_local_rank_0:
+            import socket
+            import wandb
+            logger.info("Setting up wandb")
+            wandb.init(entity=sft_training_args.wandb_entity, project=sft_training_args.wandb_project,
+                       group=sft_training_args.wandb_group, name=socket.gethostname(),
+                       tags=[sft_training_args.wandb_tag] if sft_training_args.wandb_tag else None)
 
     logger.info("Setting up trainer")
     trainer = SFTTrainer(
